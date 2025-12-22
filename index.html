@@ -401,6 +401,23 @@
             gap: 5px;
         }
 
+        #help-overlay {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: rgba(15, 52, 96, 0.9);
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            color: #ccc;
+            line-height: 1.6;
+            z-index: 10;
+        }
+
+        #help-overlay kbd {
+            background: #1a1a4e;
+        }
+
         #zoom-controls button {
             width: 36px;
             height: 36px;
@@ -445,12 +462,6 @@
             background: #0f3460;
             border: 1px solid #1a1a4e;
             border-radius: 3px;
-        }
-
-        #help-text {
-            font-size: 0.75em;
-            color: #666;
-            margin-top: 8px;
         }
 
         /* Selected cluster name display */
@@ -573,11 +584,6 @@
                             </div>
                         </div>
 
-                        <div id="help-text">
-                            <kbd>Ctrl</kbd>+<kbd>Wheel</kbd> to zoom<br>
-                            Drag to pan<br>
-                            Click node to see articles
-                        </div>
                     </div>
                 </div>
 
@@ -624,6 +630,12 @@
             </div>
             <svg id="visualization"></svg>
             <div class="tooltip" id="tooltip"></div>
+
+            <div id="help-overlay">
+                <kbd>Ctrl</kbd>+<kbd>Scroll</kbd> to zoom<br>
+                <kbd>Drag</kbd> to pan<br>
+                <kbd>Click</kbd> node to see articles
+            </div>
 
             <div id="zoom-controls">
                 <button onclick="zoomIn()" title="Zoom In">+</button>
@@ -900,6 +912,33 @@
             node.append('circle')
                 .attr('r', d => d.children ? nodeSize * 0.8 : nodeSize)
                 .style('fill', d => getNodeColor(d));
+
+            // Show labels if enabled
+            updateLabels();
+
+            // Fit tree to viewport
+            fitToViewport();
+        }
+
+        function fitToViewport() {
+            const container = document.getElementById('main');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Calculate scale to fit the tree (diameter = 2 * currentRadius)
+            const treeDiameter = currentRadius * 2;
+            const padding = 50; // padding around the tree
+            const scale = Math.min(
+                (width - padding * 2) / treeDiameter,
+                (height - padding * 2) / treeDiameter
+            );
+
+            // Apply the transform to fit and center
+            const transform = d3.zoomIdentity
+                .translate(width / 2, height / 2)
+                .scale(scale);
+
+            svg.call(zoom.transform, transform);
         }
 
         function getLeafLabel(d) {
@@ -1260,8 +1299,13 @@
             const width = container.clientWidth;
             const height = container.clientHeight;
 
-            // Fit tree to view
-            const scale = Math.min(width, height) / (currentRadius * 2.2);
+            // Calculate scale to fit the tree
+            const treeDiameter = currentRadius * 2;
+            const padding = 50;
+            const scale = Math.min(
+                (width - padding * 2) / treeDiameter,
+                (height - padding * 2) / treeDiameter
+            );
 
             svg.transition().duration(500).call(
                 zoom.transform,
