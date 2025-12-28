@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Static Circular Tree - Full View</title>
+    <title>Semantic Trees - Document Clustering Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * {
@@ -184,7 +184,7 @@
         .stat-label { color: #888; }
         .stat-value { color: #e94560; font-weight: 600; }
 
-        /* Articles panel - now prominently at top */
+        /* Articles panel */
         #articles-panel {
             flex: 1;
             overflow-y: auto;
@@ -492,13 +492,12 @@
             <div class="sidebar-content">
                 <!-- Header with dataset selector -->
                 <div id="sidebar-header">
-                    <h2>Genealogy of Knowledge</h2>
+                    <h2>Semantic Trees</h2>
                     <div class="control-group">
                         <label>Dataset</label>
                         <select id="dataset-select">
+                            <option value="tuwien">TU Wien</option>
                             <option value="aub-scholarworks">AUB ScholarWorks</option>
-                            <option value="20-newsgroups">20 Newsgroups</option>
-                            <option value="theses-sampled">French Theses (Sample)</option>
                         </select>
                     </div>
                 </div>
@@ -663,26 +662,19 @@
         let displayedArticlesCount = 0;
         const ARTICLES_PER_PAGE = 10;
 
-        // Configuration
+        // Configuration - paths relative to website folder
         const config = {
             datasets: {
+                'tuwien': {
+                    tree: 'data/tuwien-tree.json',
+                    mapping: 'data/tuwien-mapping.json',
+                    articles: 'data/tuwien-articles.json'
+                },
                 'aub-scholarworks': {
                     tree: 'data/aub-scholarworks-tree.json',
                     mapping: 'data/aub-scholarworks-mapping.json',
                     articles: 'data/aub-scholarworks-articles.json'
-                },
-                '20-newsgroups': {
-                    tree: 'data/20-newsgroups-tree.json',
-                    mapping: 'data/20-newsgroups-mapping.json',
-                    articles: 'data/20-newsgroups-articles.json'
-                },
-                // To generate a larger theses sample, edit scripts/sample_theses_branch.py
-                // and adjust the node count range (e.g., 5000-10000 instead of 3000-5000)
-                'theses-sampled': {
-                    tree: 'data/theses-sampled-tree.json',
-                    mapping: 'data/theses-sampled-mapping.json',
-                    articles: 'data/theses-sampled-articles.json'
-                },
+                }
             }
         };
 
@@ -690,7 +682,7 @@
         const depthColors = d3.scaleSequential(d3.interpolateViridis)
             .domain([0, 110]);
 
-        // Color palette for leaf labels (distinct, vibrant colors that loop)
+        // Color palette for leaf labels
         const leafColorPalette = [
             '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
             '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4',
@@ -712,7 +704,7 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             initVisualization();
-            loadDataset('aub-scholarworks');
+            loadDataset('tuwien');
 
             // Event listeners
             document.getElementById('dataset-select').addEventListener('change', (e) => {
@@ -827,14 +819,12 @@
             .then(([tree, mapping, articles]) => {
                 clusterMapping = mapping;
                 // Convert articles to index by id for fast lookup
-                // Handle both array format (theses) and object format (AUB)
                 articlesIndex = {};
                 if (Array.isArray(articles)) {
                     articles.forEach(article => {
                         articlesIndex[article.id] = article;
                     });
                 } else if (typeof articles === 'object') {
-                    // Already keyed by ID
                     articlesIndex = articles;
                 }
                 console.log(`Loaded ${Object.keys(articlesIndex).length} articles`);
@@ -850,7 +840,6 @@
         }
 
         function initTree(data) {
-            // Create hierarchy - NO COLLAPSING
             root = d3.hierarchy(data, d => d.children);
 
             // Calculate stats
@@ -874,22 +863,18 @@
         function drawTree() {
             g.selectAll('*').remove();
 
-            // Use cluster layout for radial tree
             const cluster = d3.cluster()
                 .size([360, currentRadius])
                 .separation((a, b) => 1);
 
             cluster(root);
 
-            // Radial link generator
             const linkRadial = d3.linkRadial()
                 .angle(d => d.x * Math.PI / 180)
                 .radius(d => d.y);
 
-            // Build leaf color map - assign colors to unique labels
             buildLeafColorMap();
 
-            // Draw links (no text, minimal styling)
             g.selectAll('.link')
                 .data(root.links())
                 .join('path')
@@ -898,7 +883,6 @@
                 .style('stroke', d => depthColors(d.target.depth))
                 .style('stroke-width', lineWidth + 'px');
 
-            // Draw nodes (tiny circles)
             const node = g.selectAll('.node')
                 .data(root.descendants())
                 .join('g')
@@ -913,10 +897,7 @@
                 .attr('r', d => d.children ? nodeSize * 0.8 : nodeSize)
                 .style('fill', d => getNodeColor(d));
 
-            // Show labels if enabled
             updateLabels();
-
-            // Fit tree to viewport
             fitToViewport();
         }
 
@@ -925,15 +906,13 @@
             const width = container.clientWidth;
             const height = container.clientHeight;
 
-            // Calculate scale to fit the tree (diameter = 2 * currentRadius)
             const treeDiameter = currentRadius * 2;
-            const padding = 50; // padding around the tree
+            const padding = 50;
             const scale = Math.min(
                 (width - padding * 2) / treeDiameter,
                 (height - padding * 2) / treeDiameter
             );
 
-            // Apply the transform to fit and center
             const transform = d3.zoomIdentity
                 .translate(width / 2, height / 2)
                 .scale(scale);
@@ -952,7 +931,6 @@
             leafColorMap = {};
             let colorIndex = 0;
 
-            // Get leaves in tree order
             const leaves = root.leaves();
 
             leaves.forEach(d => {
@@ -966,14 +944,12 @@
 
         function getNodeColor(d) {
             if (d.children) {
-                // Internal node - use red
                 return '#e94560';
             }
             if (colorByLabel) {
                 const label = getLeafLabel(d);
                 return leafColorMap[label] || '#4ecdc4';
             }
-            // Default leaf color
             return '#4ecdc4';
         }
 
@@ -985,10 +961,7 @@
         function handleNodeClick(event, d) {
             event.stopPropagation();
 
-            // Remove previous selection highlight
             g.selectAll('.node circle').classed('selected-node', false);
-
-            // Highlight selected node
             d3.select(event.currentTarget).select('circle').classed('selected-node', true);
 
             selectedNode = d;
@@ -1000,22 +973,18 @@
             const panel = document.getElementById('articles-panel');
             const nodeName = d.data.name || '';
 
-            // Try multiple key formats to find the mapping
-            // Tree names may have trailing underscores that mapping keys don't have
             const cleanName = nodeName.replace(/_+$/, '').replace(/\s+$/, '');
             const mapping = clusterMapping[nodeName] || clusterMapping[cleanName];
 
-            // Get display name (original label if available, otherwise node name)
             const displayName = mapping?.label || cleanName.replace(/_/g, ' ');
 
-            // Update selected cluster header
             const clusterHeader = document.getElementById('selected-cluster');
             clusterHeader.style.display = 'block';
             clusterHeader.querySelector('.cluster-name').textContent = displayName;
 
             let clusterInfo = `Depth: ${d.depth}`;
             if (mapping && mapping.doc_count) {
-                clusterInfo += ` • ${mapping.doc_count} documents`;
+                clusterInfo += ` | ${mapping.doc_count} documents`;
             }
             clusterHeader.querySelector('.cluster-info').textContent = clusterInfo;
 
@@ -1034,7 +1003,6 @@
             html = `<h3>Articles <span class="article-count">(${totalArticles})</span></h3>`;
             html += `<div id="articles-list">`;
 
-            // Add articles
             for (let i = displayedArticlesCount; i < endIndex; i++) {
                 const articleId = articleIds[i];
                 const article = articlesIndex[articleId];
@@ -1046,7 +1014,6 @@
 
             html += '</div>';
 
-            // Show load more button if there are more articles
             if (endIndex < totalArticles) {
                 html += `<button class="load-more-btn" onclick="loadMoreArticles()">
                     Load more (${endIndex}/${totalArticles})
@@ -1072,7 +1039,6 @@
 
             const listContainer = document.getElementById('articles-list');
 
-            // Add more articles
             let newHtml = '';
             for (let i = startIndex; i < endIndex; i++) {
                 const articleId = articleIds[i];
@@ -1086,7 +1052,6 @@
             listContainer.insertAdjacentHTML('beforeend', newHtml);
             displayedArticlesCount = endIndex;
 
-            // Update or remove load more button
             const loadMoreBtn = document.querySelector('.load-more-btn');
             if (endIndex < totalArticles) {
                 loadMoreBtn.textContent = `Load more (${endIndex}/${totalArticles})`;
@@ -1150,15 +1115,12 @@
         }
 
         function updateLabels() {
-            // Remove existing labels
             g.selectAll('.node-label').remove();
 
             if (!showLabels) return;
 
-            // Get leaf nodes
             const leaves = root.leaves();
 
-            // Prepare labels with deduplication
             let labelsToShow = [];
             let lastShownLabel = null;
 
@@ -1167,7 +1129,6 @@
 
                 const displayName = getLeafLabel(d);
 
-                // Dedupe: skip if same as previous label
                 if (dedupeLabels && displayName === lastShownLabel) {
                     return;
                 }
@@ -1176,7 +1137,6 @@
                 labelsToShow.push({ d, displayName });
             });
 
-            // Render labels
             labelsToShow.forEach(({ d, displayName }) => {
                 const angle = d.x - 90;
                 const radius = d.y + 5;
@@ -1299,7 +1259,6 @@
             const width = container.clientWidth;
             const height = container.clientHeight;
 
-            // Calculate scale to fit the tree
             const treeDiameter = currentRadius * 2;
             const padding = 50;
             const scale = Math.min(
